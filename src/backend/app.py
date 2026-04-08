@@ -18,7 +18,7 @@ from quart_cors import cors
 from opentelemetry import trace
 
 from settings import app_settings
-from models import CreativeBrief, Product
+from models import CreativeBrief, Product, CampaignRequest, CampaignResponse
 from orchestrator import get_orchestrator
 from services.cosmos_service import get_cosmos_service
 from services.blob_service import get_blob_service
@@ -1288,6 +1288,9 @@ async def start_generation():
     conversation_id = data.get("conversation_id") or str(uuid.uuid4())
     user_id = data.get("user_id", "anonymous")
 
+    if not brief_data:
+        return jsonify({"error": "Brief is required. Provide a 'brief' object with campaign fields (e.g., 'overview', 'objectives')."}), 400
+
     try:
         brief = CreativeBrief(**brief_data)
     except Exception as e:
@@ -1798,6 +1801,123 @@ async def shutdown():
     await blob_service.close()
 
     logger.info("Application shutdown complete")
+
+
+# ==================== Campaign Impact Hub Endpoint ====================
+
+@app.route("/api/run", methods=["POST"])
+async def run_campaign():
+    """
+    Campaign Impact Hub — main entry point for the GitHub Spark frontend.
+
+    Accepts a simple campaign payload and returns structured JSON ready for UI.
+
+    Request body:
+        {
+            "messages": [{"role": "user", "content": "..."}],
+            "context": {
+                "campaignContext": {
+                    "product": "...",
+                    "target": "25-40",
+                    "channels": ["Instagram", "TikTok"],
+                    "brandTone": "...",
+                    "budget": "medio"
+                },
+                "uiState": {"view": "campaign"}
+            }
+        }
+
+    Alternatively, pass an "endpoint" and "payload" wrapper:
+        {"endpoint": "/api/run", "payload": <campaign-payload>}
+
+    Response:
+        {
+            "summary": "...",
+            "strategy": {...},
+            "content": {...},
+            "analytics": {...},
+            "campaignPlan": {...},
+            "cards": {"overview": {...}, "strategy": {...}, "content": {...}, "analytics": {...}}
+        }
+    """
+    # Import here to avoid circular imports at module load time
+    from campaign_orchestrator import run_campaign_workflow
+
+    try:
+        raw = await request.get_json(silent=True) or {}
+    except Exception:
+        raw = {}
+
+    # Support wrapper format: {"endpoint": "...", "payload": {...}}
+    if "payload" in raw and isinstance(raw["payload"], dict):
+        raw = raw["payload"]
+
+    # Validate and parse the request
+    try:
+        campaign_request = CampaignRequest(**raw)
+    except Exception as validation_err:
+        return jsonify({
+            "error": "Invalid request payload",
+            "detail": str(validation_err),
+            "summary": "",
+            "strategy": {},
+            "content": {},
+            "analytics": {},
+            "campaignPlan": {},
+            "cards": {"overview": {}, "strategy": {}, "content": {}, "analytics": {}},
+        }), 400
+
+    # Extract user message
+    user_message = ""
+    for msg in campaign_request.messages:
+        if isinstance(msg, dict):
+            if msg.get("role") == "user":
+                user_message = msg.get("content", "")
+                break
+        elif hasattr(msg, "role") and msg.role == "user":
+            user_message = msg.content
+            break
+
+    if not user_message:
+        user_message = "Generate a marketing campaign"
+
+    # Extract campaign context
+    ctx = campaign_request.context or {}
+    campaign_context = ctx.get("campaignContext", {})
+
+    try:
+        campaign_response = await run_campaign_workflow(
+            user_message=user_message,
+            campaign_context=campaign_context,
+        )
+        return jsonify(campaign_response.model_dump()), 200
+
+    except TimeoutError as e:
+        logger.exception(f"/api/run timeout: {e}")
+        empty = _empty_campaign_response("Request timed out. Please try again.")
+        return jsonify(empty), 504
+
+    except Exception as e:
+        logger.exception(f"/api/run error: {e}")
+        empty = _empty_campaign_response(f"An error occurred: {str(e)}")
+        return jsonify(empty), 500
+
+
+def _empty_campaign_response(error_message: str = "") -> dict:
+    """Return a consistent empty campaign response structure on error."""
+    return {
+        "summary": error_message,
+        "strategy": {},
+        "content": {},
+        "analytics": {},
+        "campaignPlan": {},
+        "cards": {
+            "overview": {},
+            "strategy": {},
+            "content": {},
+            "analytics": {},
+        },
+    }
 
 
 # ==================== Error Handlers ====================
