@@ -9,7 +9,7 @@ This package contains:
 - orchestrator: HandoffBuilder-based multi-agent orchestration
 """
 
-from models import (
+from .models import (
     CreativeBrief,
     Product,
     ComplianceViolation,
@@ -17,7 +17,7 @@ from models import (
     ContentGenerationResponse,
     ComplianceResult,
 )
-from settings import app_settings
+from .settings import app_settings
 
 __all__ = [
     "CreativeBrief",

@@ -11,7 +11,7 @@ This module defines Pydantic models for:
 from datetime import datetime
 from enum import Enum
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ComplianceSeverity(str, Enum):
@@ -52,15 +52,17 @@ class CreativeBrief(BaseModel):
     The PlanningAgent extracts these fields from user's natural language
     creative brief description.
     """
-    overview: str = Field(description="Campaign summary and context")
-    objectives: str = Field(description="Goals and KPIs for the campaign")
-    target_audience: str = Field(description="Demographics and psychographics")
-    key_message: str = Field(description="Core messaging and value proposition")
-    tone_and_style: str = Field(description="Voice, manner, and communication style")
-    deliverable: str = Field(description="Expected outputs (e.g., social posts, banners)")
-    timelines: str = Field(description="Due dates and milestones")
-    visual_guidelines: str = Field(description="Image requirements and visual direction")
-    cta: str = Field(description="Call to action text and placement")
+    model_config = ConfigDict(extra="forbid")
+
+    overview: str = Field(default="", description="Campaign summary and context")
+    objectives: str = Field(default="", description="Goals and KPIs for the campaign")
+    target_audience: str = Field(default="", description="Demographics and psychographics")
+    key_message: str = Field(default="", description="Core messaging and value proposition")
+    tone_and_style: str = Field(default="", description="Voice, manner, and communication style")
+    deliverable: str = Field(default="", description="Expected outputs (e.g., social posts, banners)")
+    timelines: str = Field(default="", description="Due dates and milestones")
+    visual_guidelines: str = Field(default="", description="Image requirements and visual direction")
+    cta: str = Field(default="", description="Call to action text and placement")
 
     # Metadata
     raw_input: Optional[str] = Field(default=None, description="Original free-text input")
@@ -76,10 +78,10 @@ class Product(BaseModel):
     """
     id: Optional[str] = None
     product_name: str = Field(description="Display name of the product (e.g., 'Snow Veil')")
-    description: str = Field(description="Marketing description of the product")
-    tags: str = Field(description="Comma-separated descriptive tags (e.g., 'soft white, airy, minimal')")
-    price: float = Field(description="Price in USD")
-    sku: str = Field(description="Stock keeping unit identifier (e.g., 'CP-0001')")
+    description: Optional[str] = Field(default=None, description="Marketing description of the product")
+    tags: Optional[str] = Field(default=None, description="Comma-separated descriptive tags (e.g., 'soft white, airy, minimal')")
+    price: Optional[float] = Field(default=None, description="Price in USD")
+    sku: str = Field(default="", description="Stock keeping unit identifier (e.g., 'CP-0001')")
     image_url: Optional[str] = Field(default=None, description="URL to product image in Blob Storage")
 
     # Legacy fields for backward compatibility (optional)
@@ -152,3 +154,52 @@ class Conversation(BaseModel):
     creative_brief: Optional[CreativeBrief] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# ==================== Campaign Impact Hub Models ====================
+
+class CampaignContext(BaseModel):
+    """Campaign context provided by the frontend for Campaign Impact Hub."""
+    product: str = Field(default="", description="Product name or description")
+    target: str = Field(default="", description="Target audience (e.g., '25-40')")
+    channels: List[str] = Field(default_factory=list, description="Marketing channels (e.g., ['Instagram', 'TikTok'])")
+    brandTone: str = Field(default="", description="Brand tone (e.g., 'energético y cercano')")
+    budget: str = Field(default="", description="Budget level (e.g., 'medio', 'alto', 'bajo')")
+
+
+class CampaignMessage(BaseModel):
+    """A single message in the campaign request."""
+    role: str = Field(description="Role of the sender: 'user' or 'assistant'")
+    content: str = Field(description="Message content")
+
+
+class CampaignRequest(BaseModel):
+    """
+    Incoming request payload for the /api/run endpoint.
+
+    Accepts messages and campaign context from the GitHub Spark frontend.
+    """
+    messages: List[CampaignMessage] = Field(default_factory=list)
+    context: Optional[dict] = Field(default=None, description="Campaign context including product, audience, channels")
+
+
+class CampaignCards(BaseModel):
+    """UI cards for each section of the campaign response."""
+    overview: dict = Field(default_factory=dict)
+    strategy: dict = Field(default_factory=dict)
+    content: dict = Field(default_factory=dict)
+    analytics: dict = Field(default_factory=dict)
+
+
+class CampaignResponse(BaseModel):
+    """
+    Structured response from the Campaign Impact Hub backend.
+
+    Always returns a consistent JSON object ready for the UI to consume.
+    """
+    summary: str = Field(default="", description="High-level campaign summary")
+    strategy: dict = Field(default_factory=dict, description="Campaign strategy details")
+    content: dict = Field(default_factory=dict, description="Generated content for each channel")
+    analytics: dict = Field(default_factory=dict, description="Predicted performance metrics")
+    campaignPlan: dict = Field(default_factory=dict, description="Execution timeline and milestones")
+    cards: CampaignCards = Field(default_factory=CampaignCards, description="UI card data for each section")
