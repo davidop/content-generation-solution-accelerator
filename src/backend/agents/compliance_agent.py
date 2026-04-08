@@ -43,7 +43,10 @@ def comprehensive_compliance_check(
     Args:
         headline: Marketing headline text
         body: Body copy text
-        cta_text: Call-to-action text (None = not provided, "" = empty/missing)
+        cta_text: Call-to-action text.
+            - ``None`` (default) → CTA not required for this content type; no warning raised.
+            - ``""`` (empty string) → CTA is expected but missing; a warning is raised.
+            - Any non-empty string → CTA is present; no warning raised.
         image_prompt: Image generation prompt
         image_alt_text: Accessibility alt text for the image
 

@@ -1289,7 +1289,7 @@ async def start_generation():
     user_id = data.get("user_id", "anonymous")
 
     if not brief_data:
-        return jsonify({"error": "Brief is required. Provide a 'brief' object with at least an 'overview' field."}), 400
+        return jsonify({"error": "Brief is required. Provide a 'brief' object with campaign fields (e.g., 'overview', 'objectives')."}), 400
 
     try:
         brief = CreativeBrief(**brief_data)

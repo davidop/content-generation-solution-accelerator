@@ -9,7 +9,7 @@ Responsible for:
 """
 
 import logging
-from typing import Optional
+from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ def analyze_campaign_performance(
     target: str = "",
     channels: Optional[list] = None,
     budget: str = "",
-) -> dict:
+) -> Tuple[dict, dict]:
     """
     Generate predicted performance analytics and campaign plan.
 

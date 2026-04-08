@@ -74,20 +74,16 @@ def validate_text_compliance(content: str, content_type: str = "body") -> dict:
             })
 
     # 2. Unsubstantiated claims check
+    # Build a set of already-flagged terms to avoid O(n*m) duplication check
+    already_flagged_terms = {w.lower() for w in prohibited}
     for claim in _UNSUBSTANTIATED_CLAIMS:
-        if claim.lower() in content_lower:
-            # Only flag if not already caught by prohibited words
-            already_flagged = any(
-                v["message"] and claim.lower() in v["message"].lower()
-                for v in violations
-            )
-            if not already_flagged:
-                violations.append({
-                    "severity": "error",
-                    "message": f"Unsubstantiated claim '{claim}' found — requires evidence or removal",
-                    "suggestion": f"Remove '{claim}' or replace with specific, verifiable data",
-                    "field": content_type,
-                })
+        if claim.lower() in content_lower and claim.lower() not in already_flagged_terms:
+            violations.append({
+                "severity": "error",
+                "message": f"Unsubstantiated claim '{claim}' found — requires evidence or removal",
+                "suggestion": f"Remove '{claim}' or replace with specific, verifiable data",
+                "field": content_type,
+            })
 
     # 3. Headline length check
     if content_type == "headline" and content:

@@ -81,7 +81,7 @@ class Product(BaseModel):
     description: Optional[str] = Field(default=None, description="Marketing description of the product")
     tags: Optional[str] = Field(default=None, description="Comma-separated descriptive tags (e.g., 'soft white, airy, minimal')")
     price: Optional[float] = Field(default=None, description="Price in USD")
-    sku: str = Field(default="", description="Stock keeping unit identifier (e.g., 'CP-0001')")
+    sku: Optional[str] = Field(default=None, description="Stock keeping unit identifier (e.g., 'CP-0001')")
     image_url: Optional[str] = Field(default=None, description="URL to product image in Blob Storage")
 
     # Legacy fields for backward compatibility (optional)
